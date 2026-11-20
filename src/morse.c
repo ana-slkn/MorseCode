@@ -2,9 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#include "decode.h" 
-#include "encode.h"
-#include "statistics.h"
+#include "../include/decode.h" 
+#include "../include/encode.h"
+#include "../include/statistics.h"
 
 char *read_long_line_from_stdin(char);
 char *read_long_line_from_file(char, char *);

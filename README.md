@@ -12,11 +12,11 @@ The Morse Code Tool is a versatile encoding and decoding application designed to
 ## Getting Started
 ### Installation
 1. Clone the repository to your local machine.
-2. Compile the source code using a C compiler, e.g., `gcc morse.c -o morse`.
+2. Compile the source code using a C compiler, e.g., `gcc src/morse.c -o morse`.
 
 ### Usage
-- **Encoding**: Run the compiled application with the appropriate switch: `./morse -c <filename>` for encoding text to Morse code.
-- **Decoding**: Run the compiled application with the appropriate switch: `./morse -d <filename>` for decoding Morse code to English text.
+- **Encoding**: Run the compiled application with the appropriate switch: `./morse -c sometext.txt` for encoding text to Morse code.
+- **Decoding**: Run the compiled application with the appropriate switch: `./morse -d textfordec.txt` for decoding Morse code to English text.
 - **Viewing History**: Use `./morse -h e2m` or `./morse -h m2e` to view translation history.
 
 ## Prerequisites

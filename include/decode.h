@@ -40,6 +40,7 @@ static const char *engtext[] =
     "__..", //Z
 };
 
+
 typedef struct node
 {
     char character;
