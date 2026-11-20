@@ -53,16 +53,17 @@ void encode (char *text)
         }
 
         // Iterate through each character in the input text
-        for (int i = 0; i < strlen(text); i++)
+        for (size_t i = 0; text[i] != '\0'; i++)
         {
             // Check if the character matches any English letter or space
-            for (int j = 0; j < 37; j++)
+            for (size_t j = 0; j < sizeof englishtext / sizeof englishtext[0]; j++)
             {
                 if(text[i] == englishtext[j])
                 {
                     // Print and write the corresponding Morse code to 'output.txt'
                     printf("%s", morseCode[j]);
                     fprintf(output, "%s", morseCode[j]);
+                    break;
                 }
             }
         }
