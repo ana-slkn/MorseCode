@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <ctype.h>
+#include "output.h"
 
 #ifndef DECODE_H
 #define DECODE_H
@@ -46,64 +47,56 @@ typedef struct node
     struct node *right;
 } node;
 
-static void decode_rec(node *tree, const char *text, FILE *output) //it goes through the text, and points where to and what to do if it meets ., _, *space*
-                                                                   //it will be used in decode function to recursively traverse the binary tree
+static char decode_rec(const node *tree, const char *token, const char *end)
 {
-    if(tree == NULL) return;
-
-    if(*text == '\0')
-    {
-        fputc(tree->character, output);
-    }
-
-    else if(*text == '/')
-    {
-        fputc(' ', output);
-    }
-        
-    else if(*text == '.')
-    {
-        decode_rec(tree -> left, text + 1, output);
-    }
-    else if(*text == '_')
-    {
-        decode_rec(tree -> right, text + 1, output);
-    }
+    if (tree == NULL)
+        return '\0';
+    if (token == end)
+        return tree->character;
+    if (*token == '.')
+        return decode_rec(tree->left, token + 1, end);
+    if (*token == '_' || *token == '-')
+        return decode_rec(tree->right, token + 1, end);
+    return '\0';
 }
 
-void decode(const char *text, node *root)//decodes the whole input
+int decode(const char *text, node *root)
 {
-    FILE *output = fopen ("output.txt", "w");
-    if (output == NULL) 
-        {
-            printf("Failed to open 'output.txt' for writing.\n");
-            return;
+    FILE *output = fopen("output.txt", "w");
+    if (output == NULL) {
+        fprintf(stderr, "Failed to open 'output.txt' for writing.\n");
+        return 0;
+    }
+
+    const char *cursor = text;
+    while (*cursor) {
+        if (isspace((unsigned char)*cursor)) {
+            ++cursor;
+            continue;
         }
 
-    char *p;
-    while(*text)//the while loop will be evaluated till text equals 0 - till when the null-terminator will be encountered
-        {
-        p = strchr(text, ' '); //strchr function finds in string text the *space* character and returns the pointer to it
-                               //p analyzes the input, till space
-        if(p != NULL)
-        {
-            if(p - text != 0)
-            {
-                char code[p - text + 1];
-                memcpy(code, text, p - text);
-                code[p - text]='\0';
-                decode_rec(root, code, output); //finds the equivalent of the code in the tree
-            }
-            text = p + 1;
+        const char *token = cursor;
+        do {
+            ++cursor;
+        } while (*cursor && !isspace((unsigned char)*cursor));
+
+        char letter = (*token == '/' && cursor == token + 1)
+                      ? ' ' : decode_rec(root, token, cursor);
+        if (letter == '\0') {
+            fprintf(stderr, "Invalid Morse token at byte %zu.\n",
+                    (size_t)(token - text) + 1);
+            finish_output(output);
+            return 0;
         }
-        else
-        {
-            decode_rec(root, text, output);//analyzes further the input
-            break;
+        if (fputc(letter, output) == EOF) {
+            finish_output(output);
+            return 0;
         }
     }
-    fclose(output);
+
+    if (!finish_output(output)) return 0;
     fputc('\n', stdout);
+    return 1;
 }
 
 static void insert_rec(node **tree, char letter, const char *text)//recursive function, which analyzes the text, and goes (in tree) to left(if .), right( if _) or prints the letter needed
@@ -154,8 +147,7 @@ void drop_tree_rec(node *root)//drops the tree recursively, in order to free the
 
 void drop_tree(node *root)
 {
-    drop_tree_rec(root->left);
-    drop_tree_rec(root->right);
+    drop_tree_rec(root);
 }
 
 #endif

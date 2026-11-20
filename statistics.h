@@ -1,65 +1,33 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-
 #ifndef STATISTICS_H
 #define STATISTICS_H
 
-void statistics (char *text)
+#include <ctype.h>
+#include <stdio.h>
+
+void statistics(const char *text, int is_morse)
 {
-    char engtext[36]={'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V',
-    'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
-    int dot = 0;
-    int dash = 0;
-    int c = 0;
-
-    if (text[0] == '.' || text[0] == '_')
-    {
-        for (int i=0; i<strlen(text); i++)
-        {
-            if(text[i]=='.')
-            {
-                dot++;
-            }
-            if (text[i]=='_')
-            {
-            dash++;
-            }
+    if (is_morse) {
+        size_t dots = 0;
+        size_t dashes = 0;
+        for (; *text; ++text) {
+            if (*text == '.')
+                ++dots;
+            else if (*text == '_' || *text == '-')
+                ++dashes;
         }
-        printf("\nOccurence of dots is: %d\nOccurence of dashes is: %d\n", dot, dash);
+        printf("\nOccurence of dots is: %zu\nOccurence of dashes is: %zu\n", dots, dashes);
+        return;
     }
-    else
-    {
-        int occurence[36];
 
-        for (int i=0; i < 36; i++)
-        {
-            occurence[i] = 0;
-        }
-
-        for(int i = 0; i < strlen(text); i++)
-        {
-            if(islower(text[i]))
-            {
-                text[i] = toupper(text[i]);
-            }
-        }
-
-        for (int i = 0; i < strlen(text); i++)
-        {
-            if(text[i] >= 'A' && text[i] <= 'Z')
-            {
-                occurence[text[i] - 65]++;
-            }
-        }
-        for (int i = 0; i < 36; i++)
-        {
-            if(occurence [i] != 0)
-            {
-                printf("Character %c occured %d time(s)\n", (i + 65), occurence[i]);
-            }
-        }
+    size_t occurrence[26] = {0};
+    for (; *text; ++text) {
+        int letter = toupper((unsigned char)*text);
+        if (letter >= 'A' && letter <= 'Z')
+            ++occurrence[letter - 'A'];
+    }
+    for (int i = 0; i < 26; ++i) {
+        if (occurrence[i] != 0)
+            printf("Character %c occured %zu time(s)\n", 'A' + i, occurrence[i]);
     }
 }
 

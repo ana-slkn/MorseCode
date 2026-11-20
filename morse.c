@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include "decode.h" 
 #include "encode.h"
 #include "statistics.h"
@@ -8,7 +9,7 @@
 char *read_long_line_from_stdin(char);
 char *read_long_line_from_file(char, char *);
 void view_or_delete_history(const char *);
-void write_to_history(char *, char *);
+void write_to_history(const char *, const char *, const char *);
 FILE* open_file(const char *, const char *);
 int check_choice(int);
 
@@ -42,137 +43,69 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    node* root = NULL;
-
-    if (switchArg[1] == 'c') 
+    if (switchArg[1] == 'c' || switchArg[1] == 'd')
     {
-        char *eng2morse = "eng2morse.txt";
+        int encoding = switchArg[1] == 'c';
+        const char *stdin_filename = encoding ? "encode.txt" : "decode.txt";
+        const char *history_filename = encoding ? "eng2morse.txt" : "morse2eng.txt";
+        int from_stdin = strcmp(filename, stdin_filename) == 0;
+        char *str;
 
-        if (strcmp(filename, "encode.txt") == 0)
-        {
-            printf("-------------------- Welcome to EnglishText - MorseText converter! --------------------\n");
-            printf("Enter the EnglishText you would like to encode. When you're done, press Enter, Ctrl+Z, Enter:\n");
-            
-            char *str = read_long_line_from_stdin(switchArg[0]);
-            FILE *encodeptr = open_file("encode.txt", "w");
-            fprintf(encodeptr, "%s", str);
-            fclose(encodeptr);
+        if (from_stdin) {
+            printf("Enter the %s text and press Enter:\n", encoding ? "English" : "Morse");
+            str = read_long_line_from_stdin('-');
+            if (str == NULL)
+                return EXIT_FAILURE;
 
-            write_to_history(eng2morse, str);
-
-            encodeptr = open_file("encode.txt", "r");
-            fscanf(encodeptr, "%[^\n]", str);
-
-            statistics(str);
-
-            printf("\nThe MorseCode text is: ");
-            encode(str);
-
-            write_to_history(eng2morse, str);
-
-            fclose(encodeptr);
-
-            FILE *outputptr = open_file("output.txt", "r");
-            fscanf(outputptr, "%[^\n]", str);
-
-            write_to_history(eng2morse, str);
-
-            statistics(str);
-
-            fclose(outputptr);
-
-            free(str);
-        }
-        else
-        {
-
-            char *str = read_long_line_from_file(switchArg[0], filename);
-            FILE *fptr = open_file(filename, "r");
-            fscanf(fptr, "%[^\n]", str);
-
-            write_to_history(eng2morse, str);
-
+            FILE *snapshot = open_file(stdin_filename, "w");
+            if (snapshot == NULL) {
+                free(str);
+                return EXIT_FAILURE;
+            }
+            int written = fputs(str, snapshot);
+            int closed = fclose(snapshot);
+            if (written == EOF || closed == EOF) {
+                fprintf(stderr, "Could not write '%s'.\n", stdin_filename);
+                free(str);
+                return EXIT_FAILURE;
+            }
+        } else {
+            str = read_long_line_from_file('-', filename);
+            if (str == NULL)
+                return EXIT_FAILURE;
             printf("\nThe content of the file is: %s\n", str);
-            statistics(str);
-            encode(str);
-
-            write_to_history(eng2morse, str);
-            fclose(fptr);
-            FILE *outputptr = open_file("output.txt", "r");
-            fscanf(outputptr, "%[^\n]", str);
-
-            write_to_history(eng2morse, str);
-            
-            statistics(str);
-            fclose(outputptr);
-            free(str);
         }
-    } 
 
-    else if (switchArg[1] == 'd') 
-    {
-        char *morse2eng = "morse2eng.txt";
-        if (strcmp(filename, "decode.txt") == 0)
-        {
-        printf("-------------------- Welcome to MorseText - EnglishText converter! --------------------\n");
-        printf("Enter the MorseText you would like to decode. When you're done, press Enter, Ctrl+Z, Enter:\n");
-        char *str = read_long_line_from_stdin(switchArg[0]);
-
-
-        FILE *decodeptr = open_file("decode.txt", "w");
-        fprintf(decodeptr, "%s", str);
-        fclose(decodeptr);
-
-        write_to_history(morse2eng, str);
-
-        decodeptr = open_file("decode.txt", "r");
-
-        fscanf(decodeptr, "%[^\n]", str);
-        statistics(str);
-
-        fclose(decodeptr);
-
-        create_tree(&root);
-        decode(str, root);
-        FILE *outputptr = open_file("output.txt", "r");
-
-        fscanf(outputptr, "%[^\n]", str);
-        write_to_history(morse2eng, str);
-        printf("The decoded text is: %s\n", str);
-        statistics(str);
-        
-        drop_tree(root);
-        fclose(outputptr);
-
-        free(str);
-        }
-        else
-        {
-            char *str = read_long_line_from_file(switchArg[0], filename);
-            FILE *fptr = open_file(filename, "r");
-            fscanf(fptr, "%[^\n]", str);
-
-            write_to_history(morse2eng, str);
-
-            printf("The content of the file is: %s", str);
-            statistics(str);
-
+        statistics(str, !encoding);
+        int converted;
+        if (encoding) {
+            printf("\nThe MorseCode text is: ");
+            converted = encode(str);
+        } else {
+            node *root = NULL;
             create_tree(&root);
-            decode(str, root);
-            fclose(fptr);
-            FILE *outputptr = open_file("output.txt", "r");
-
-           fscanf(outputptr, "%[^\n]", str);
-        write_to_history(morse2eng, str);
-        printf("The decoded text is: %s\n", str);
-        statistics(str);
-        
-        drop_tree(root);
-        fclose(outputptr);
-
-        free(str);
+            converted = decode(str, root);
+            drop_tree(root);
         }
-    }   
+        if (!converted) {
+            free(str);
+            return EXIT_FAILURE;
+        }
+
+        char *result = read_long_line_from_file('-', "output.txt");
+        if (result == NULL) {
+            free(str);
+            return EXIT_FAILURE;
+        }
+
+        write_to_history(history_filename, str, result);
+        if (!encoding)
+            printf("The decoded text is: %s\n", result);
+        statistics(result, encoding);
+
+        free(result);
+        free(str);
+    }
     else if (switchArg[1] == 'h')
     {
         if (strcmp(filename, "e2m") == 0)
@@ -249,7 +182,7 @@ char *read_long_line_from_stdin(char mode) //this function reads continously tex
 
 char *read_long_line_from_file(char mode, char *filename) //this function is an analog of the last one, but for reading text from files
 {
-    int MAX_BUFFER_LENGTH = 1;
+    size_t MAX_BUFFER_LENGTH = 1;
     FILE *file = fopen(filename, "r");
     if (file == NULL) 
     {
@@ -257,8 +190,8 @@ char *read_long_line_from_file(char mode, char *filename) //this function is an 
         return NULL;
     }
 
-    int i = 0;
-    char c;
+    size_t i = 0;
+    int c;
     char *str = (char *)malloc(MAX_BUFFER_LENGTH * sizeof(char));
 
     if (str == NULL) {
@@ -284,25 +217,39 @@ char *read_long_line_from_file(char mode, char *filename) //this function is an 
             }
         }
 
-        str[i] = c;
-        i++;
+        str[i++] = (char)c;
 
         if (i == MAX_BUFFER_LENGTH) 
         {
-            MAX_BUFFER_LENGTH ++;
-            char *str2 = (char*) malloc(MAX_BUFFER_LENGTH * sizeof(char));
+            if (MAX_BUFFER_LENGTH == SIZE_MAX)
+            {
+                fprintf(stderr, "Input file is too large.\n");
+                free(str);
+                fclose(file);
+                return NULL;
+            }
+            char *str2 = (char*) malloc((MAX_BUFFER_LENGTH + 1) * sizeof(char));
             if (str2 == NULL) {
                 perror("Memory reallocation failed");
                 fclose(file);
                 free(str);
                 return NULL;
             }
+            memcpy(str2, str, i);
+            free(str);
             str = str2;
+            ++MAX_BUFFER_LENGTH;
         }
     }
 
-    str[i] = '\0';
+    if (ferror(file)) {
+        perror(filename);
+        free(str);
+        fclose(file);
+        return NULL;
+    }
 
+    str[i] = '\0';
     fclose(file);
     return str;
 }
@@ -337,57 +284,62 @@ void view_or_delete_history(const char *filename) //this function is used when t
 
     printf("Here is the history:\n");
 
-    int choice;
-    char c = fgetc(fptr);
-
-    while (c != EOF) {
-        printf("%c", c);
-        c = fgetc(fptr);
+    int c;
+    while ((c = fgetc(fptr)) != EOF)
+        putchar(c);
+    int read_failed = ferror(fptr);
+    fclose(fptr);
+    if (read_failed) {
+        fprintf(stderr, "Could not read '%s'.\n", filename);
+        return;
     }
 
     printf("If you want to delete the history, press 0.\n");
     printf("If you want to exit, press 1.\n");
-    printf("Your choice: ");
-    
-    scanf("%d", &choice);
 
-    while (choice != 0 && choice != 1) {
-        printf("You can choose only between 0 and 1! Try again: ");
-        scanf("%d", &choice);
-    }
-
-    if (choice == 0) {
-        fptr = fopen(filename, "w");
-
-        if (fptr == NULL) {
-            printf("Failed to open '%s' for writing.\n", filename);
+    char choice[32];
+    for (;;) {
+        printf("Your choice: ");
+        fflush(stdout);
+        if (fgets(choice, sizeof choice, stdin) == NULL)
             return;
-        }
-
-        fclose(fptr);
-        printf("The history was successfully deleted! :3\n");
-    }
-
-    fclose(fptr);
-}
-
-void write_to_history(char *filename, char *str) // it is used during actual translation, helping to write the history of translations
-{
-      FILE *fptr = fopen(filename, "a");
-        if (fptr == NULL)
-        {
-            {
-            printf("Failed to open 'eng2morse.txt' for writing.\n");
-            free(str);
+        if (strcmp(choice, "1\n") == 0 || strcmp(choice, "1") == 0)
             return;
+        if (strcmp(choice, "0\n") == 0 || strcmp(choice, "0") == 0)
+            break;
+        if (strchr(choice, '\n') == NULL) {
+            while ((c = getchar()) != '\n' && c != EOF) {
             }
         }
-        //fprintf(fptr, "\nThe original text:\n");
+        printf("You can choose only between 0 and 1! Try again.\n");
+    }
 
-        fprintf(fptr, "%s", str);
+    fptr = fopen(filename, "w");
+    if (fptr == NULL) {
+        perror(filename);
+        return;
+    }
+    if (fclose(fptr) == EOF) {
+        perror(filename);
+        return;
+    }
+    printf("The history was successfully deleted! :3\n");
+}
 
-        fprintf(fptr, "\n\n_________________________________________________________________\n\n");
-        fclose(fptr);
+void write_to_history(const char *filename, const char *input, const char *result)
+{
+    FILE *fptr = fopen(filename, "a");
+    if (fptr == NULL) {
+        perror(filename);
+        return;
+    }
+
+    int written = fprintf(fptr, "%s\n\n%s\n\n"
+                          "_________________________________________________________________\n\n",
+                          input, result);
+    int closed = fclose(fptr);
+    if (written < 0 || closed == EOF)
+        fprintf(stderr, "Could not write '%s'.\n", filename);
 }
 
 FILE* open_file(const char *filename, const char *mode) 
